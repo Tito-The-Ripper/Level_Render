@@ -12,8 +12,9 @@
 // TODO: Part 4a
 #define GATEWARE_ENABLE_INPUT 
 // With what we want & what we don't defined we can include the API
-#include "../Gateware.h"
+#include "Gateware.h"
 #include "renderer.h"
+
 // open some namespaces to compact the code a bit
 using namespace GW;
 using namespace CORE;
@@ -28,7 +29,7 @@ int main()
 	if (+win.Create(0, 0, 800, 600, GWindowStyle::WINDOWEDBORDERED))
 	{
 		// TODO: Part 1a
-		win.SetWindowName("Anthony Tejeda - Assignment 1");
+		win.SetWindowName("Anthony Tejeda - LevelRender");
 		float clr[] = { 0, 168/255.0f, 107/255.0f, 1 }; // start with a jade color
 		msgs.Create([&](const GW::GEvent& e) {
 			GW::SYSTEM::GWindow::Events q;
@@ -38,6 +39,7 @@ int main()
 		win.Register(msgs);
 		if (+d3d12.Create(win, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT))
 		{
+			FileParse();
 			Renderer renderer(win, d3d12); // init
 			while (+win.ProcessWindowEvents())
 			{

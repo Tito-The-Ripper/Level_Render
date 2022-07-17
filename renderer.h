@@ -2,46 +2,15 @@
 // required for compiling shaders on the fly, consider pre-compiling instead
 #include <d3dcompiler.h>
 #pragma comment(lib, "d3dcompiler.lib")
+
 #include "d3dx12.h" // official helper file provided by microsoft
 #include <chrono>
-// Simple Vertex Shader
-const char* vertexShaderSource = R"(
-// an ultra simple hlsl vertex shader
-// TODO: Part 2b
+#include "Filemanage.h"
 
-	cbuffer SHADER_VARS : register(b0)
-	{
-		matrix worldMatrix;
-		matrix viewMatrix;
-		matrix projectionMatrix;
-
-	}
-
-	// TODO: Part 2f
-	// TODO: Part 3b
-// TODO: Part 1c
-float4 main(float4 inputVertex : POSITION) : SV_POSITION
-{
-	// TODO: Part 2d, Part 2f, Part 3b
-	
-	inputVertex = mul(worldMatrix, inputVertex);
-	inputVertex = mul(viewMatrix, inputVertex);
-	inputVertex = mul(projectionMatrix, inputVertex);
-
-	return inputVertex;
-}
-)";
-// Simple Pixel Shader
-const char* pixelShaderSource = R"(
-// an ultra simple hlsl pixel shader
-float4 main() : SV_TARGET 
-{	
-	return float4(0.5f,0.25f,0.75f,0); // TODO: Part 1a
-}
-)";
 // Creation, Rendering & Cleanup
 class Renderer
 {
+	
 	// proxy handles
 	GW::SYSTEM::GWindow win;
 	GW::GRAPHICS::GDirectX12Surface d3d;
@@ -53,44 +22,103 @@ class Renderer
 	// TODO: Part 2a
 	GW::MATH::GMATRIXF FWorldMatrix;
 	// TODO: Part 3c
+	
 	 GW::MATH::GMATRIXF FWorldMatrix1;
-	 GW::MATH::GMATRIXF FWorldMatrix2;
-	 GW::MATH::GMATRIXF FWorldMatrix3;
-	 GW::MATH::GMATRIXF FWorldMatrix4;
-	 GW::MATH::GMATRIXF FWorldMatrix5;
-	// TODO: Part 2e
+
 	 GW::MATH::GMATRIXF FViewMatrix;
 	 GW::MATH::GMATRIXF FCameraMatrix;
-	// TODO: Part 3a
 	 GW::MATH::GMATRIXF FProjectionMatrix;
+
+	 GW::MATH::GVECTORF FVec;
+	 GW::MATH::GVECTORF FCameraPos;
+	 GW::MATH::GVECTORF LightDirection;
+	 GW::MATH::GVECTORF LightColor;
+	 GW::MATH::GVECTORF LightAmbient;
 	// what we need at a minimum to draw a triangle
 	D3D12_VERTEX_BUFFER_VIEW					vertexView;
 	Microsoft::WRL::ComPtr<ID3D12Resource>		vertexBuffer;
+
+	D3D12_INDEX_BUFFER_VIEW indexView;
+	Microsoft::WRL::ComPtr<ID3D12Resource>indexBuffer;
+	
+	D3D12_CONSTANT_BUFFER_VIEW_DESC  ConstaView;
+	Microsoft::WRL::ComPtr<ID3D12Resource> ConstaBuffer;
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC  structViewWorld;
+	D3D12_SHADER_RESOURCE_VIEW_DESC  structViewMats;
+	D3D12_SHADER_RESOURCE_VIEW_DESC  structViewLight;
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> structBufferWorld;
+	Microsoft::WRL::ComPtr<ID3D12Resource> structBufferMats;
+	Microsoft::WRL::ComPtr<ID3D12Resource> structBufferLight;
+	
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> HeapConstaBF;
+	D3D12_DESCRIPTOR_HEAP_DESC HeapDescConstaBF;
+
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> HeapStructureBF;
+	D3D12_DESCRIPTOR_HEAP_DESC HeapDescStructureBF;
+
 	Microsoft::WRL::ComPtr<ID3D12RootSignature>	rootSignature;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState>	pipeline;
 	
 	// Private Temp Vars
+	IDXGISwapChain4* Swapping;
+	DXGI_SWAP_CHAIN_DESC Swap_Data;
 	float OLD_MOUSE_X_DELTA = 0;
 	float  OLD_MOUSE_Y_DELTA = 0;
 
+	unsigned int FrameRate = Swap_Data.BufferCount;
+
 public:
-	// TODO: Part 1c
-	struct Vertex
+	
+
+
+
+	struct SCENE_DATA
 	{
-		float x , y , z , w ;
+	
+		GW::MATH::GMATRIXF viewMatrix, projectionMatrix; // cameraMatrix;
+		GW::MATH::GVECTORF cameraPos;
+		GW::MATH::GVECTORF  passing[7];
+	
 	};
-	// TODO: Part 2b
-	struct SHADER_VARS
+
+	struct MESH_DATA
 	{
-		GW::MATH::GMATRIXF worldMatrix;
-		GW::MATH::GMATRIXF viewMatrix;
-		GW::MATH::GMATRIXF projectionMatrix;
-		
+
+		std::vector<H2B::ATTRIBUTES> material;
+	
 	};
 
+	struct World
+	{
+		std::vector<GW::MATH::GMATRIXF> WorldMatrixs;
+	};
 
+	struct Mats
+	{
+		std::vector<H2B::ATTRIBUTES> material;
+	};
 
+	#pragma region Lightings
 
+	struct DirectionalLight
+	{
+		GW::MATH::GVECTORF sunDirection, sunColor, sunAmbient;
+	};
+	
+	#pragma endregion
+
+	struct Lights
+	{
+		DirectionalLight DLight;
+	
+	};
+	SCENE_DATA S_Data;
+	MESH_DATA M_Data[2];
+	World MatrixWorrld;
+	Mats Materials;
+	Lights Lighting;
 
 		// TODO: Part 2f
 		// TODO: Part 3b
@@ -107,170 +135,280 @@ public:
 		PCcontrols.Create(_win);
 		Consolecontrols.Create();
 		// TODO: Part 2a
-		GW::MATH::GMatrix GRMatrix4x4;
+		GW::MATH::GMatrix CreationMatrixes;
 		GW::MATH::GVECTORF FVec;
-		GRMatrix4x4.Create();
+		CreationMatrixes.Create();
 
-		// 1th matrix W/////////////////////// Bottom
-		GRMatrix4x4.IdentityF(FWorldMatrix);
-		GRMatrix4x4.RotateXGlobalF(FWorldMatrix, 1.5708f, FWorldMatrix);
-		FVec.x = 0; FVec.y = -0.5; FVec.z = 0; FVec.w = 0;
-		
-		GRMatrix4x4.TranslateGlobalF(FWorldMatrix, FVec, FWorldMatrix);
-
+		std::string vertexShaderSource;
+		vertexShaderSource = ShaderAsString("../VertexShader.hlsl");
 		
 		
-		// TODO: Part 3c
-		// // 2th matrix W/////////////////////// Top
-		GW::MATH::GVECTORF FVec1;
-		GRMatrix4x4.IdentityF(FWorldMatrix1);
-		GRMatrix4x4.RotateXGlobalF(FWorldMatrix1, 1.5708f, FWorldMatrix1);
-		FVec1.x = 0; FVec1.y = 0.5; FVec1.z = 0; FVec1.w = 0;
+		std::string pixelShaderSource;
+		pixelShaderSource = ShaderAsString("../PixelShader.hlsl");
 
-		GRMatrix4x4.TranslateGlobalF(FWorldMatrix1, FVec1, FWorldMatrix1);
-
-		// 2th matrix W/////////////////////// Left Corners r
-		GW::MATH::GVECTORF FVec2;
-		GRMatrix4x4.IdentityF(FWorldMatrix2);
-		GRMatrix4x4.RotateYGlobalF(FWorldMatrix2, 1.5708f, FWorldMatrix2);
-		FVec2.x = -0.5; FVec2.y = 0; FVec2.z = 0.0; FVec2.w = 0;
-		GRMatrix4x4.TranslateGlobalF(FWorldMatrix2, FVec2, FWorldMatrix2);
+		//World id with animation rotation 
+		//CreationMatrixes.IdentityF(FWolrldMatrix);
+		//CreationMatrixes.IdentityF(FWolrldMatrix2);
 
 		
-		// 3th matrix W/////////////////////// Right Left Corners r
-		GW::MATH::GVECTORF FVec3;
-		GRMatrix4x4.IdentityF(FWorldMatrix3);
-		GRMatrix4x4.RotateYGlobalF(FWorldMatrix3, 0, FWorldMatrix3);
-		FVec3.x = 0; FVec3.y = 0; FVec3.z = 0.5; FVec3.w = 0;
-		GRMatrix4x4.TranslateGlobalF(FWorldMatrix3, FVec3, FWorldMatrix3);
 
-		
-		// 4th matrix W/////////////////////// Left Corners L
-		GW::MATH::GVECTORF FVec4;
-		GRMatrix4x4.IdentityF(FWorldMatrix4);
-		GRMatrix4x4.RotateYGlobalF(FWorldMatrix4, 1.5708f, FWorldMatrix4);
-		FVec4.x = 0.5; FVec4.y = 0; FVec4.z = 0; FVec4.w = 0;
-		GRMatrix4x4.TranslateGlobalF(FWorldMatrix4, FVec4, FWorldMatrix4);
-		
-		// 5th matrix W///////////////////////Right Corners L
-		GW::MATH::GVECTORF FVec5;
-		GRMatrix4x4.IdentityF(FWorldMatrix5);
-		GRMatrix4x4.RotateYGlobalF(FWorldMatrix5, 0, FWorldMatrix5);
-		FVec5.x = 0; FVec5.y = 0; FVec5.z = -0.5; FVec5.w = 0;
-		GRMatrix4x4.TranslateGlobalF(FWorldMatrix5, FVec5, FWorldMatrix5);
+		//View Matrix
 
-		// TODO: Part 2e
-		GRMatrix4x4.IdentityF(FViewMatrix);
-		GRMatrix4x4.RotateXGlobalF(FViewMatrix, -0.314159f, FViewMatrix);
+		#pragma region Camera/View Matrix
+
+		CreationMatrixes.IdentityF(FViewMatrix);
+		
+
 		GW::MATH::GVECTORF FVecView;
 		GW::MATH::GVECTORF FVecUP;
+		GW::MATH::GVECTORF FVecLookAt;
+
 		FVecUP.x = 0;  FVecUP.y = 1; FVecUP.z = 0; FVecUP.w = 0;
-
-		FVecView.x = 0.25; FVecView.y = -0.125; FVecView.z = -0.25f; FVecView.w = 0;
-
-		GRMatrix4x4.TranslateGlobalF(FViewMatrix, FVecView, FViewMatrix);
-		
-		// CA: this function gives you and ALREADY-INVERSED view matrix. This means it can be used for rendering on the GPU,
-		// but if you want the TRUE world matrix of the camera, you will need to inverse it after calling LookAt on it.
-		
-		GRMatrix4x4.LookAtLHF(FVecView, FVec,FVecUP, FViewMatrix);
+		FVecView.x = 0.75; FVecView.y = 0.25; FVecView.z = -1.5f; FVecView.w = 0;
+		FVecLookAt.x = 0.15; FVecLookAt.y = 0.75; FVecLookAt.z = 0.0f; FVecLookAt.w = 0;
 
 		
+
+		CreationMatrixes.LookAtLHF(FVecView, FVecLookAt, FVecUP, FViewMatrix);
+
+		FCameraPos = FVecView;
+
 		FCameraMatrix = FViewMatrix;
-		
-		GRMatrix4x4.InverseF(FCameraMatrix, FCameraMatrix);
+		CreationMatrixes.InverseF(FCameraMatrix, FCameraMatrix);
+#pragma endregion
 
-		GRMatrix4x4.IdentityF(FProjectionMatrix);
+		//Projection
+
+		#pragma region Projection Matrix
+
+		CreationMatrixes.IdentityF(FProjectionMatrix);
+
 		float ASPECRATIO = 0;
-		
+
 		_d3d.GetAspectRatio(ASPECRATIO);
+
+		CreationMatrixes.ProjectionDirectXLHF(1.13446f, ASPECRATIO, 0.1f, 100.0, FProjectionMatrix);
+		#pragma endregion
+
+		//Lights
+		#pragma region Directional Light
+
+		//LightDirection 
+		LightDirection.x = -1; LightDirection.y = -1; LightDirection.z = 2; LightDirection.w = 0;
+
+		//Light Color
+		LightColor.x = 0.9; LightColor.y = 0.9; LightColor.z = 1.0; LightColor.w = 1.0;
+
+		//Light Ambient
+		LightAmbient.x = 0.25; LightAmbient.y = 0.25; LightAmbient.z = 0.35; LightAmbient.w = 0;
+
+		#pragma endregion
+
+		// TODO: part 2b
+		S_Data.viewMatrix = FViewMatrix;
+		S_Data.cameraPos = FCameraPos;
+		S_Data.projectionMatrix = FProjectionMatrix;
+
+		Lighting.DLight.sunDirection = LightDirection;
+		Lighting.DLight.sunColor = LightColor;
+		Lighting.DLight.sunAmbient = LightAmbient;
+
+		for (int i = 0; i < ModelContainer.size(); i++)
+		{
+			for (int j = 0; j < ModelContainer[i].World.size(); j++)
+			{
+				MatrixWorrld.WorldMatrixs.push_back(ModelContainer[i].World[j]);
+			}
+			
+		}
+
+
 		
-		 GRMatrix4x4.ProjectionDirectXLHF(1.13446f, ASPECRATIO, 0.1f, 100.0, FProjectionMatrix);
+
+		//M_Data[0].worldMatrix = FWolrldMatrix;
+		//M_Data[0].material = FSLogo_materials[0].attrib;
+
+		//M_Data[1].worldMatrix = FWolrldMatrix2;
+		//M_Data[1].material = FSLogo_materials[1].attrib;
 
 		// TODO: Part 1b
 		// TODO: Part 1c
 		// Create Vertex Buffer
-		const Vertex verts[] = {
-			//Vertic
-			{ -0.5f, 0.5f, 0, 1 }, { -0.5f, -0.5f, 0, 1 },
-			{ -0.46f,0.5f, 0, 1 }, { -0.46f,-0.5f, 0, 1 },
-			{ -0.42f,0.5f, 0, 1 }, { -0.42f,-0.5f, 0, 1 },
-			{ -0.38f,0.5f, 0, 1 }, { -0.38f,-0.5f, 0, 1 },
-			{ -0.34f,0.5f, 0, 1 }, { -0.34f,-0.5f, 0, 1 },
-			{ -0.3f, 0.5f, 0, 1 }, { -0.3f, -0.5f, 0, 1 },
-			{ -0.26f,0.5f, 0, 1 }, { -0.26f,-0.5f, 0, 1 },
-			{ -0.22f,0.5f, 0, 1 }, { -0.22f,-0.5f, 0, 1 },
-			{ -0.18f,0.5f, 0, 1 }, { -0.18f,-0.5f, 0, 1 },
-			{ -0.14f,0.5f, 0, 1 }, { -0.14f,-0.5f, 0, 1 },
-			{ -0.1f, 0.5f, 0, 1 }, { -0.1f, -0.5f, 0, 1 },
-			{ -0.06f,0.5f, 0, 1 }, { -0.06f,-0.5f, 0, 1 },
-			{ -0.02f,0.5f, 0, 1 }, { -0.02f,-0.5f, 0, 1 },
-			{ 0.02f, 0.5f, 0, 1 }, { 0.02f, -0.5f, 0, 1 },
-			{ 0.06f, 0.5f, 0, 1 }, { 0.06f, -0.5f, 0, 1 },
-			{ 0.1f,  0.5f, 0, 1 }, { 0.1f,  -0.5f, 0, 1 },
-			{ 0.14f, 0.5f, 0, 1 }, { 0.14f, -0.5f, 0, 1 },
-			{ 0.18f, 0.5f, 0, 1 }, { 0.18f, -0.5f, 0, 1 },
-			{ 0.22f, 0.5f, 0, 1 }, { 0.22f, -0.5f, 0, 1 },
-			{ 0.26f, 0.5f, 0, 1 }, { 0.26f, -0.5f, 0, 1 },
-			{ 0.3f,  0.5f, 0, 1 }, { 0.3f,  -0.5f, 0, 1 },
-			{ 0.34f, 0.5f, 0, 1 }, { 0.34f, -0.5f, 0, 1 },
-			{ 0.38f, 0.5f, 0, 1 }, { 0.38f, -0.5f, 0, 1 },
-			{ 0.42f, 0.5f, 0, 1 }, { 0.42f, -0.5f, 0, 1 },
-			{ 0.46f, 0.5f, 0, 1 }, { 0.46f, -0.5f, 0, 1 },
-			{ 0.5f,  0.5f, 0, 1 }, { 0.5f,  -0.5f, 0, 1 },
-
-			//Hor
-			{ 0.5, -0.5, 0, 1 },{ -0.5, -0.5, 0, 1 },
-			{ 0.5, -0.46, 0, 1 },{ -0.5, -0.46, 0, 1 },
-			{ 0.5, -0.42, 0, 1 },{ -0.5, -0.42, 0, 1 },
-			{ 0.5, -0.38, 0, 1 },{ -0.5, -0.38, 0, 1 },
-			{ 0.5, -0.34, 0, 1 },{ -0.5, -0.34, 0, 1 },
-			{ 0.5, -0.3, 0, 1 },{ -0.5, -0.3, 0, 1 },
-			{ 0.5, -0.26, 0, 1 },{ -0.5, -0.26, 0, 1 },
-			{ 0.5, -0.22, 0, 1 },{ -0.5, -0.22, 0, 1 },
-			{ 0.5, -0.18, 0, 1 },{ -0.5, -0.18, 0, 1 },
-			{ 0.5, -0.14, 0, 1 },{ -0.5, -0.14, 0, 1 },
-			{ 0.5, -0.1, 0, 1 },{ -0.5, -0.1, 0, 1 },
-			{ 0.5, -0.06, 0, 1 },{ -0.5, -0.06, 0, 1 },
-			{ 0.5, -0.02, 0, 1 },{ -0.5, -0.02, 0, 1 },
-			{ 0.5, 0.02, 0, 1 },{ -0.5, 0.02, 0, 1 },
-			{ 0.5, 0.06, 0, 1 },{ -0.5, 0.06, 0, 1 },
-			{ 0.5, 0.1, 0, 1 },{ -0.5, 0.1, 0, 1 },
-			{ 0.5, 0.14, 0, 1 },{ -0.5, 0.14, 0, 1 },
-			{ 0.5, 0.18, 0, 1 },{ -0.5, 0.18, 0, 1 },
-			{ 0.5, 0.22, 0, 1 },{ -0.5, 0.22, 0, 1 },
-			{ 0.5, 0.26, 0, 1 },{ -0.5, 0.26, 0, 1 },
-			{ 0.5, 0.3, 0, 1 },{ -0.5, 0.3, 0, 1 },
-			{ 0.5, 0.34, 0, 1 },{ -0.5, 0.34, 0, 1 },
-			{ 0.5, 0.38, 0, 1 },{ -0.5, 0.38, 0, 1 },
-			{ 0.5, 0.42, 0, 1 },{ -0.5, 0.42, 0, 1 },
-			{ 0.5, 0.46, 0, 1 },{ -0.5, 0.46, 0, 1 },
-			{ 0.5, 0.5, 0, 1 },{ -0.5, 0.5, 0, 1 },
-		};
+		
 		// TODO: Part 1d
-		creator->CreateCommittedResource( // using UPLOAD heap for simplicity
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
-			D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(sizeof(verts)),
-			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&vertexBuffer));
-		// Transfer triangle data to the vertex buffer.
-		UINT8* transferMemoryLocation;
-		vertexBuffer->Map(0, &CD3DX12_RANGE(0, 0),
-			reinterpret_cast<void**>(&transferMemoryLocation));
-		memcpy(transferMemoryLocation, verts, sizeof(verts));
-		vertexBuffer->Unmap(0, nullptr);
-		// TODO: Part 1c
-		// Create a vertex View to send to a Draw() call.
-		vertexView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-		vertexView.StrideInBytes = sizeof(float) * 4;
-		vertexView.SizeInBytes = sizeof(verts);
+
+		#pragma region VertexBuffer
+		
+		unsigned int Vetrex = Level.Vertices.size() * sizeof(H2B::VERTEX);
+
+			creator->CreateCommittedResource( // using UPLOAD heap for simplicity
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
+				D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(Vetrex),
+				D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&vertexBuffer));
+			// Transfer triangle data to the vertex buffer.
+			UINT8* transferMemoryLocationVertices;
+			vertexBuffer->Map(0, &CD3DX12_RANGE(0, 0),
+				reinterpret_cast<void**>(&transferMemoryLocationVertices));
+			memcpy(transferMemoryLocationVertices, Level.Vertices.data(), Vetrex);
+			vertexBuffer->Unmap(0, nullptr);
+			// TODO: Part 1c
+			// Create a vertex View to send to a Draw() call.
+			vertexView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
+			vertexView.StrideInBytes = sizeof(H2B::VERTEX) * 1;
+			vertexView.SizeInBytes = Vetrex;
+		
+		#pragma endregion
+
+		#pragma region IndicesBuffer
+		
+
+			unsigned int Indices = Level.Indices.size() * sizeof(unsigned int);
+			creator->CreateCommittedResource( // using UPLOAD heap for simplicity
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
+				D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(Indices),
+				D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&indexBuffer));
+			// Transfer triangle data to the vertex buffer.
+			UINT8* transferMemoryLocationIndices;
+			indexBuffer->Map(0, &CD3DX12_RANGE(0, 0),
+				reinterpret_cast<void**>(&transferMemoryLocationIndices));
+			memcpy(transferMemoryLocationIndices, Level.Indices.data(), Indices);
+			indexBuffer->Unmap(0, nullptr);
+			// TODO: Part 1c
+			// Create a vertex View to send to a Draw() call.
+			indexView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
+			indexView.Format = DXGI_FORMAT_R32_UINT;
+			indexView.SizeInBytes = Indices;
+		
+		#pragma endregion
+
+		#pragma region ConstantBuffer
+			_d3d.GetSwapchain4((void**)&Swapping);
+			Swapping->GetDesc(&Swap_Data);
+				
+			Swapping->GetCurrentBackBufferIndex();
+
+			creator->CreateCommittedResource( // using UPLOAD heap for simplicity
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
+				D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(sizeof(SCENE_DATA)),
+				D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&ConstaBuffer));
+			
+			// Transfer triangle data to the vertex buffer.
+			
+			UINT8* transferMemoryLocationConstantBF;
+			ConstaBuffer->Map(0, &CD3DX12_RANGE(0, 0),
+				reinterpret_cast<void**>(&transferMemoryLocationConstantBF));
+
+				memcpy(transferMemoryLocationConstantBF, &S_Data, sizeof(SCENE_DATA));
+
+			ConstaBuffer->Unmap(0, nullptr);
+			// TODO: Part 1c
+			// Create a vertex View to send to a Draw() call.
+			ConstaView.BufferLocation = ConstaBuffer->GetGPUVirtualAddress();
+			ConstaView.SizeInBytes = sizeof(SCENE_DATA);
+	
+
+		#pragma region HeapCB
+			HeapDescConstaBF.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+			HeapDescConstaBF.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+			HeapDescConstaBF.NumDescriptors = 1;
+			HeapDescConstaBF.NodeMask = 0;
+
+			creator->CreateDescriptorHeap(&HeapDescConstaBF, IID_PPV_ARGS(HeapConstaBF.ReleaseAndGetAddressOf()));
+
+			// TODO: Part 2f
+			creator->CreateConstantBufferView(&ConstaView, HeapConstaBF->GetCPUDescriptorHandleForHeapStart());
+
+		#pragma endregion	
+
+		#pragma endregion
+
+		#pragma region StructuredBuffer
+
+			
+
+			
+
+			// World Matrices
+			
+			#pragma region StructuredBufferWordMatrices
+			structViewWorld.Buffer.FirstElement = 0;
+			structViewWorld.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+			structViewWorld.Buffer.NumElements = ModelContainer.data()->World.size();
+			structViewWorld.Buffer.StructureByteStride = sizeof(World);
+			structViewWorld.Format = DXGI_FORMAT_UNKNOWN;
+			structViewWorld.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+			structViewWorld.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+			creator->CreateCommittedResource( // using UPLOAD heap for simplicity
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
+				D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(structViewWorld.Buffer.NumElements* structViewWorld.Buffer.StructureByteStride),
+				D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&structBufferWorld));
+
+
+			// World Matrices
+			UINT8* transferMemoryLocationStructBFWorld;
+			structBufferWorld->Map(0, &CD3DX12_RANGE(0, 0),
+				reinterpret_cast<void**>(&transferMemoryLocationStructBFWorld));
+
+			memcpy(transferMemoryLocationStructBFWorld, &MatrixWorrld, sizeof(World));
+
+			structBufferWorld->Unmap(0, nullptr);
+			#pragma endregion
+
+
+			// Mats data
+			#pragma region StructuredBufferMaterials
+			structViewMats.Buffer.FirstElement = 0;
+			structViewMats.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+			structViewMats.Buffer.NumElements = ModelContainer.data()->Mats.size();
+			structViewMats.Buffer.StructureByteStride = sizeof(Mats);
+			structViewMats.Format = DXGI_FORMAT_UNKNOWN;
+			structViewMats.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+			structViewMats.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+			creator->CreateCommittedResource( // using UPLOAD heap for simplicity
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
+				D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(structViewMats.Buffer.NumElements* structViewMats.Buffer.StructureByteStride),
+				D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&structBufferMats));
+
+
+			UINT8* transferMemoryLocationStructBFMats;
+			structBufferMats->Map(0, &CD3DX12_RANGE(0, 0),
+				reinterpret_cast<void**>(&transferMemoryLocationStructBFMats));
+
+			memcpy(transferMemoryLocationStructBFMats, &Materials, sizeof(Mats));
+
+			structBufferMats->Unmap(0, nullptr);
+			#pragma endregion
+
+			
+			
+
+			#pragma region HeapSB
+			HeapDescStructureBF.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+			HeapDescStructureBF.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+			HeapDescStructureBF.NumDescriptors = 1;
+			HeapDescStructureBF.NodeMask = 0;
+
+			creator->CreateDescriptorHeap(&HeapDescStructureBF, IID_PPV_ARGS(HeapStructureBF.ReleaseAndGetAddressOf()));
+
+			// TODO: Part 2f
+			creator->CreateShaderResourceView(structBufferWorld.Get(), &structViewWorld , HeapStructureBF->GetCPUDescriptorHandleForHeapStart());
+			
+			creator->CreateShaderResourceView(structBufferMats.Get(), &structViewMats, HeapStructureBF->GetCPUDescriptorHandleForHeapStart());
+
+			#pragma endregion	
+
+		#pragma endregion
+
 		// Create Vertex Shader
 		UINT compilerFlags = D3DCOMPILE_ENABLE_STRICTNESS;
 #if _DEBUG
 		compilerFlags |= D3DCOMPILE_DEBUG;
 #endif
 		Microsoft::WRL::ComPtr<ID3DBlob> vsBlob, errors;
-		if (FAILED(D3DCompile(vertexShaderSource, strlen(vertexShaderSource),
-			nullptr, nullptr, nullptr, "main", "vs_5_0", compilerFlags, 0, 
+		if (FAILED(D3DCompile(vertexShaderSource.c_str(), strlen(vertexShaderSource.c_str()),
+			nullptr, nullptr, nullptr, "main", "vs_5_1", compilerFlags, 0, 
 			vsBlob.GetAddressOf(), errors.GetAddressOf())))
 		{
 			std::cout << (char*)errors->GetBufferPointer() << std::endl;
@@ -278,8 +416,8 @@ public:
 		}
 		// Create Pixel Shader
 		Microsoft::WRL::ComPtr<ID3DBlob> psBlob; errors.Reset();
-		if (FAILED(D3DCompile(pixelShaderSource, strlen(pixelShaderSource),
-			nullptr, nullptr, nullptr, "main", "ps_5_0", compilerFlags, 0, 
+		if (FAILED(D3DCompile(pixelShaderSource.c_str(), strlen(pixelShaderSource.c_str()),
+			nullptr, nullptr, nullptr, "main", "ps_5_1", compilerFlags, 0, 
 			psBlob.GetAddressOf(), errors.GetAddressOf())))
 		{
 			std::cout << (char*)errors->GetBufferPointer() << std::endl;
@@ -287,26 +425,40 @@ public:
 		}
 		// TODO: Part 1c
 		// Create Input Layout
+		#pragma region InputLayout
 		D3D12_INPUT_ELEMENT_DESC format[] = {
-			{ 
-				"POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 
-				D3D12_APPEND_ALIGNED_ELEMENT, 
-				D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
-			}
+
+			{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{"TEXTURE", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{"NORM", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 		};
+		#pragma endregion
+
 		// TODO: Part 2c
-		CD3DX12_ROOT_PARAMETER rootParameter;
-		rootParameter.InitAsConstants(64,0,0,D3D12_SHADER_VISIBILITY_VERTEX);
+		#pragma region RootParameter N RootSignature
+
+
+
+		std::array<CD3DX12_ROOT_PARAMETER, 4> Rootpara;
+		Rootpara[0].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
+		Rootpara[1].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
+		Rootpara[2].InitAsDescriptorTable();
+		//Rootpara[2].InitAsShaderResourceView(2, 0, D3D12_SHADER_VISIBILITY_ALL);
+		//Rootpara[3].InitAsShaderResourceView(3, 0, D3D12_SHADER_VISIBILITY_ALL);
+		//Rootpara[4].InitAsShaderResourceView(4, 0, D3D12_SHADER_VISIBILITY_ALL);
 		
 		// create root signature
 		CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-		rootSignatureDesc.Init(1, &rootParameter, 0, nullptr,
+		rootSignatureDesc.Init(Rootpara.size(), Rootpara.data(), 0, nullptr,
 			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 		Microsoft::WRL::ComPtr<ID3DBlob> signature;
 		D3D12SerializeRootSignature(&rootSignatureDesc, 
 			D3D_ROOT_SIGNATURE_VERSION_1, &signature, &errors);
 		creator->CreateRootSignature(0, signature->GetBufferPointer(), 
 			signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+		#pragma endregion
+
+
 		// create pipeline state
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC psDesc;
 		ZeroMemory(&psDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
@@ -338,42 +490,66 @@ public:
 		d3d.GetDepthStencilView((void**)&dsv);
 		// setup the pipeline
 		cmd->SetGraphicsRootSignature(rootSignature.Get());
-		cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
-		cmd->SetPipelineState(pipeline.Get());
+		
 		// TODO: Part 3a
 		// TODO: Part 2b
-		SHADER_VARS Shader;
-	    Shader.worldMatrix = FWorldMatrix;
-		Shader.viewMatrix = FViewMatrix;
-		Shader.projectionMatrix = FProjectionMatrix;
-		cmd->SetGraphicsRoot32BitConstants(0, 64, &Shader, 0);
-		// now we can draw
+	
+
+	
+
+		cmd->SetDescriptorHeaps(0, HeapConstaBF.ReleaseAndGetAddressOf());
+
+		cmd->SetGraphicsRootConstantBufferView(0, ConstaBuffer->GetGPUVirtualAddress());
+
+		cmd->SetGraphicsRootConstantBufferView(1, ConstaBuffer->GetGPUVirtualAddress());
+
+		//cmd->SetDescriptorHeaps(1, HeapStructureBF.ReleaseAndGetAddressOf());
+
+		cmd->SetGraphicsRootShaderResourceView(2, structBufferWorld->GetGPUVirtualAddress());
+
+		cmd->SetGraphicsRootShaderResourceView(3, structBufferMats->GetGPUVirtualAddress());
+
+		//cmd->SetGraphicsRootShaderResourceView(4, structBufferLight->GetGPUVirtualAddress());
+		
+		cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+		cmd->SetPipelineState(pipeline.Get());
+
 		cmd->IASetVertexBuffers(0, 1, &vertexView);
-		// TODO: Part 1b
-		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-		cmd->DrawInstanced(104, 1, 0, 0); // TODO: Part 1d
+		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		cmd->IASetIndexBuffer(&indexView);
+		//cmd->DrawIndexedInstanced(8532, 1, 0, 0, 0);
+
+
+		// TODO: Part 3b
+		//for (int i = 0; i < FSLogo_materialcount; i++)
+		//{
+		//	// TODO: Part 3c
+		//	// now we can draw
+		//	
+		//	// TODO: Part 1h
 		
 
-		// TODO: Part 3d
-		Shader.worldMatrix = FWorldMatrix1;
-		cmd->SetGraphicsRoot32BitConstants(0, 64, &Shader, 0);
-		cmd->DrawInstanced(104, 1, 0, 0); // TODO: Part 1d
-		
-		Shader.worldMatrix = FWorldMatrix2;
-		cmd->SetGraphicsRoot32BitConstants(0, 64, &Shader, 0);
-		cmd->DrawInstanced(104, 1, 0, 0); // TODO: Part 1d
-		
-		Shader.worldMatrix = FWorldMatrix3;
-		cmd->SetGraphicsRoot32BitConstants(0, 64, &Shader, 0);
-		cmd->DrawInstanced(104, 1, 0, 0); // TODO: Part 1d
 
-		Shader.worldMatrix = FWorldMatrix4;
-		cmd->SetGraphicsRoot32BitConstants(0, 64, &Shader, 0);
-		cmd->DrawInstanced(104, 1, 0, 0); // TODO: Part 1d
 
-		Shader.worldMatrix = FWorldMatrix5;
-		cmd->SetGraphicsRoot32BitConstants(0, 64, &Shader, 0);
-		cmd->DrawInstanced(104, 1, 0, 0); // TODO: Part 1d
+		//	if (i == 0)
+		//	{
+		//		
+		//		
+
+				
+		//	}
+		//	else
+		//	{
+		//		
+
+		//		//cmd->SetGraphicsRootConstantBufferView(1, ConstaBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA) + sizeof(MESH_DATA));
+		//	}
+
+			cmd->DrawIndexedInstanced(80000, 1, 0, 0, 0);
+		//}
+		
+				//cmd->SetGraphicsRoot32BitConstants(0, 64, &, 0);
+		
 
 		
 		// release temp handles
