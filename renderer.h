@@ -53,6 +53,7 @@ class Renderer
 	Microsoft::WRL::ComPtr<ID3D12Resource> structBufferLight;
 	
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> HeapConstaBF;
+	D3D12_GPU_DESCRIPTOR_HANDLE Handler;
 	D3D12_DESCRIPTOR_HEAP_DESC HeapDescConstaBF;
 
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> HeapStructureBF;
@@ -86,7 +87,7 @@ public:
 	struct MESH_DATA
 	{
 
-		std::vector<H2B::ATTRIBUTES> material;
+		H2B::ATTRIBUTES material;
 	
 	};
 
@@ -95,9 +96,10 @@ public:
 		std::vector<GW::MATH::GMATRIXF> WorldMatrixs;
 	};
 
-	struct Mats
+	struct Mats_Mesh
 	{
-		std::vector<H2B::ATTRIBUTES> material;
+		std::vector<H2B::MATERIAL> material;
+		std::vector<H2B::MESH> meshes;
 	};
 
 	#pragma region Lightings
@@ -117,7 +119,7 @@ public:
 	SCENE_DATA S_Data;
 	MESH_DATA M_Data[2];
 	World MatrixWorrld;
-	Mats Materials;
+	Mats_Mesh Materials_n_Meshes;
 	Lights Lighting;
 
 		// TODO: Part 2f
@@ -220,6 +222,24 @@ public:
 				MatrixWorrld.WorldMatrixs.push_back(ModelContainer[i].World[j]);
 			}
 			
+		}
+
+		for (int i = 0; i < ModelContainer.size(); i++)
+		{
+			for (int j = 0; j < ModelContainer[i].Meshes.size(); j++)
+			{
+				Materials_n_Meshes.meshes.push_back(ModelContainer[i].Meshes[j]);
+			}
+
+		}
+
+		for (int i = 0; i < ModelContainer.size(); i++)
+		{
+			for (int j = 0; j < ModelContainer[i].Mats.size(); j++)
+			{
+				Materials_n_Meshes.material.push_back(ModelContainer[i].Mats[j]);
+			}
+
 		}
 
 
@@ -333,7 +353,7 @@ public:
 			#pragma region StructuredBufferWordMatrices
 			structViewWorld.Buffer.FirstElement = 0;
 			structViewWorld.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-			structViewWorld.Buffer.NumElements = ModelContainer.data()->World.size();
+			structViewWorld.Buffer.NumElements = Level.World.size();
 			structViewWorld.Buffer.StructureByteStride = sizeof(World);
 			structViewWorld.Format = DXGI_FORMAT_UNKNOWN;
 			structViewWorld.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
@@ -341,7 +361,7 @@ public:
 
 			creator->CreateCommittedResource( // using UPLOAD heap for simplicity
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
-				D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(structViewWorld.Buffer.NumElements* structViewWorld.Buffer.StructureByteStride),
+				D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(structViewWorld.Buffer.NumElements * structViewWorld.Buffer.StructureByteStride),
 				D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&structBufferWorld));
 
 
@@ -360,15 +380,15 @@ public:
 			#pragma region StructuredBufferMaterials
 			structViewMats.Buffer.FirstElement = 0;
 			structViewMats.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-			structViewMats.Buffer.NumElements = ModelContainer.data()->Mats.size();
-			structViewMats.Buffer.StructureByteStride = sizeof(Mats);
+			structViewMats.Buffer.NumElements = Level.Mats.size() + Level.Meshes.size();
+			structViewMats.Buffer.StructureByteStride = sizeof(Mats_Mesh);
 			structViewMats.Format = DXGI_FORMAT_UNKNOWN;
 			structViewMats.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 			structViewMats.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
 			creator->CreateCommittedResource( // using UPLOAD heap for simplicity
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
-				D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(structViewMats.Buffer.NumElements* structViewMats.Buffer.StructureByteStride),
+				D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(structViewMats.Buffer.NumElements * structViewMats.Buffer.StructureByteStride),
 				D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&structBufferMats));
 
 
@@ -376,7 +396,7 @@ public:
 			structBufferMats->Map(0, &CD3DX12_RANGE(0, 0),
 				reinterpret_cast<void**>(&transferMemoryLocationStructBFMats));
 
-			memcpy(transferMemoryLocationStructBFMats, &Materials, sizeof(Mats));
+			memcpy(transferMemoryLocationStructBFMats, &Materials_n_Meshes, sizeof(Mats_Mesh));
 
 			structBufferMats->Unmap(0, nullptr);
 			#pragma endregion
@@ -389,6 +409,8 @@ public:
 			HeapDescStructureBF.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 			HeapDescStructureBF.NumDescriptors = 1;
 			HeapDescStructureBF.NodeMask = 0;
+
+			
 
 			creator->CreateDescriptorHeap(&HeapDescStructureBF, IID_PPV_ARGS(HeapStructureBF.ReleaseAndGetAddressOf()));
 
@@ -430,7 +452,10 @@ public:
 
 			{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 			{"TEXTURE", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{"NORM", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+			{"NORM", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+
+		
+
 		};
 		#pragma endregion
 
@@ -438,14 +463,12 @@ public:
 		#pragma region RootParameter N RootSignature
 
 
-
 		std::array<CD3DX12_ROOT_PARAMETER, 4> Rootpara;
 		Rootpara[0].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
 		Rootpara[1].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
-		Rootpara[2].InitAsDescriptorTable();
-		//Rootpara[2].InitAsShaderResourceView(2, 0, D3D12_SHADER_VISIBILITY_ALL);
-		//Rootpara[3].InitAsShaderResourceView(3, 0, D3D12_SHADER_VISIBILITY_ALL);
-		//Rootpara[4].InitAsShaderResourceView(4, 0, D3D12_SHADER_VISIBILITY_ALL);
+		
+		Rootpara[2].InitAsShaderResourceView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
+		Rootpara[3].InitAsShaderResourceView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
 		
 		// create root signature
 		CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
@@ -470,7 +493,7 @@ public:
 		psDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 		psDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 		psDesc.SampleMask = UINT_MAX;
-		psDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE; // TODO: Part 1b
+		psDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE; // TODO: Part 1b 
 		psDesc.NumRenderTargets = 1;
 		psDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 		psDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
@@ -518,37 +541,10 @@ public:
 		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		cmd->IASetIndexBuffer(&indexView);
 		//cmd->DrawIndexedInstanced(8532, 1, 0, 0, 0);
-
-
-		// TODO: Part 3b
-		//for (int i = 0; i < FSLogo_materialcount; i++)
-		//{
-		//	// TODO: Part 3c
-		//	// now we can draw
-		//	
-		//	// TODO: Part 1h
 		
-
-
-
-		//	if (i == 0)
-		//	{
-		//		
-		//		
-
-				
-		//	}
-		//	else
-		//	{
-		//		
-
-		//		//cmd->SetGraphicsRootConstantBufferView(1, ConstaBuffer->GetGPUVirtualAddress() + sizeof(SCENE_DATA) + sizeof(MESH_DATA));
-		//	}
-
-			cmd->DrawIndexedInstanced(80000, 1, 0, 0, 0);
-		//}
+				cmd->DrawIndexedInstanced(ModelContainer[0].Meshes.data()->drawInfo.indexCount, 1, ModelContainer[0].Meshes.data()->drawInfo.indexOffset, 0, 0);
 		
-				//cmd->SetGraphicsRoot32BitConstants(0, 64, &, 0);
+	
 		
 
 		

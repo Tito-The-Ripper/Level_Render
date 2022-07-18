@@ -17,12 +17,12 @@ struct OBJ_ATTRIBUTES
 	uint   illum; // illumination model
 };
 
-struct OUTPUT_TO_RASTERIZER
-{
-	float4 posH : SV_POSITION;
-	float3 nrmW : NORMAL;
-	float3 posW : WORLD;
-};
+//struct OUTPUT_TO_RASTERIZER
+//{
+//	float4 posH : SV_POSITION;
+//	float3 nrmW : NORMAL;
+//	float3 posW : WORLD;
+//};
 
 struct SCENE_DATA
 {
@@ -30,7 +30,6 @@ struct SCENE_DATA
 	matrix viewMatrix;
 	matrix projectionMatrix;
 	float4 cameraPos;
-
 	float4  passing[7];
 };
 
@@ -47,7 +46,7 @@ struct World
 	matrix WorldMatrixs;
 };
 
-struct Mats
+struct Mats_Mesh
 {
 	OBJ_ATTRIBUTES material;
 };
@@ -67,15 +66,16 @@ struct Lights
 ConstantBuffer<SCENE_DATA> camera : register(b0, Space0);
 ConstantBuffer<MESH_DATA> meshInfo : register(b1, Space0);
 
-//StructuredBuffer <Mats> : register(t0,Space0);
-//StructuredBuffer <World> meshInfo : register(s0,Space0);
-//StructuredBuffer<Lights> cameraAndLights : register(s1,Space0);
+StructuredBuffer<World> WorldMatrices : register(t0, Space0);
+StructuredBuffer<Mats_Mesh> Materials : register(t1, Space0);
+//StructuredBuffer<Lights> Lighting : register(t2, Space0);
+
 
 
 
 // TODO: Part 4f
 // TODO: Part 4b
-float4 main(OUTPUT_TO_RASTERIZER input) : SV_TARGET
+float4 main() : SV_TARGET
 {
 	// TODO: Part 3a
 

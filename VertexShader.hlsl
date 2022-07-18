@@ -16,12 +16,12 @@ struct OBJ_ATTRIBUTES
 	uint   illum; // illumination model
 };
 
-struct OUTPUT_TO_RASTERIZER
-{
-	float4 posH : SV_POSITION;
-	float3 nrmW : NORMAL;
-	float3 posW : WORLD;
-};
+//struct OUTPUT_TO_RASTERIZER
+//{
+//	float4 posH : SV_POSITION;
+//	float3 nrmW : NORMAL;
+//	float3 posW : WORLD;
+//};
 
 struct SCENE_DATA
 {
@@ -29,16 +29,16 @@ struct SCENE_DATA
 	matrix viewMatrix;
 	matrix projectionMatrix;
 	float4 cameraPos;
-
 	float4  passing[7];
 };
 
 struct MESH_DATA
 {
 
-	matrix worldMatrix;
-	OBJ_ATTRIBUTES material;
-	uint passing[28];
+
+	
+    uint instanceid : SV_InstanceID;
+	//uint passing[28];
 };
 
 struct World
@@ -46,7 +46,7 @@ struct World
 	matrix WorldMatrixs;
 };
 
-struct Mats
+struct Mats_Mesh
 {
 	OBJ_ATTRIBUTES material;
 };
@@ -67,9 +67,9 @@ struct Lights
 ConstantBuffer<SCENE_DATA> camera : register(b0, Space0);
 ConstantBuffer<MESH_DATA> meshInfo : register(b1, Space0);
 
-StructuredBuffer <Mats> Materials: register(t1, Space0);
 StructuredBuffer<World> WorldMatrices : register(t0, Space0);
-//StructuredBuffer<Lights> Lighting;
+StructuredBuffer<Mats_Mesh> Materials : register(t1, Space0);
+//StructuredBuffer<Lights> Lighting : register(t2, Space0);
 
 // TODO: Part 1f
 
@@ -93,22 +93,16 @@ float4 main(VS_Input inputVertex) : SV_POSITION
 	// TODO: Part 4b
 	// TODO: Part 2i
 
-	OUTPUT_TO_RASTERIZER Output = (OUTPUT_TO_RASTERIZER)0;
-    
-    matrix TEMP;
-    for (int i = 0; i < 3; i++)
-    {
-		 TEMP = WorldMatrices[i].WorldMatrixs;
-    }
-       
+	//OUTPUT_TO_RASTERIZER Output = (OUTPUT_TO_RASTERIZER)0;
+   
+		 inputVertex.Pos = mul(inputVertex.Pos, WorldMatrices[meshInfo.instanceid].WorldMatrixs);
+        inputVertex.Pos = mul(inputVertex.Pos, camera.viewMatrix);
+        inputVertex.Pos = mul(inputVertex.Pos, camera.projectionMatrix);
 
-    inputVertex.Pos = mul(inputVertex.Pos, TEMP);
-	inputVertex.Pos = mul(inputVertex.Pos,camera.viewMatrix);
-	inputVertex.Pos = mul(inputVertex.Pos,camera.projectionMatrix);
-
-	Output.posH = inputVertex.Pos;
+	//Output.posH = inputVertex.Pos;
 	//Output.nrmW = mul( float4( inputVertex.Norm, 1 ), meshInfo.worldMatrix).xyz;
 	//Output.posW =  mul(inputVertex.Pos,meshInfo.worldMatrix).xyz;
-	return inputVertex.Pos;
+        return inputVertex.Pos;
+    
 
 }

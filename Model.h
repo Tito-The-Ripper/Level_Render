@@ -39,5 +39,9 @@ public:
 
 	std::vector<H2B::VERTEX> Vertices; // Vertex of a object 
 	std::vector<unsigned> Indices; // Indices of that object
+	std::vector<H2B::MATERIAL> Mats; // material of a object 
+	std::vector<H2B::MESH> Meshes; // meshes of that object
+	std::vector<GW::MATH::GMATRIXF> World; // world matrix of a mesh
+
 
 };

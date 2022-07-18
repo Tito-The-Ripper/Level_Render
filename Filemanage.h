@@ -16,12 +16,12 @@ Level_Data Level;
 
 void FileParse()
 {
-		
+	int InstaceCouter = 0;
 	std::ifstream BlenderFile;
 	std::stringstream Temp;
 	std::string PlaceHolder;
 	std::string  Deli = "(<>) ";
-	std::string  num = "_0123456789";
+	std::string  num = "0123456789";
 	Model objects;
 	H2B::Parser ParseModel;
 	GW::MATH::GMATRIXF MatrixTemp;
@@ -41,7 +41,10 @@ void FileParse()
 			{
 				std::getline(BlenderFile, PlaceHolder);
 
-				if (PlaceHolder.find(num) != std::string::npos)
+				if (PlaceHolder.find("0") != std::string::npos || PlaceHolder.find("1") != std::string::npos || PlaceHolder.find("2") != std::string::npos || 
+					PlaceHolder.find("3") != std::string::npos || PlaceHolder.find("4") != std::string::npos || PlaceHolder.find("5") != std::string::npos || 
+					PlaceHolder.find("6") != std::string::npos || PlaceHolder.find("7") != std::string::npos || PlaceHolder.find("8") != std::string::npos || 
+					PlaceHolder.find("9") != std::string::npos )
 				{
 					for (char R : num)
 					{
@@ -83,6 +86,7 @@ void FileParse()
 						}
 
 						objects.World.push_back(MatrixTemp);
+						Level.World.push_back(MatrixTemp);
 						break;
 					}
 				
@@ -93,11 +97,13 @@ void FileParse()
 				for (int i = 0; i < ParseModel.materialCount; i++)
 				{
 					objects.Mats.push_back(ParseModel.materials[i]);
+					Level.Mats.push_back(ParseModel.materials[i]);
 				}
 
 				for (int i = 0; i < ParseModel.meshCount; i++)
 				{
 					objects.Meshes.push_back(ParseModel.meshes[i]);
+					Level.Meshes.push_back(ParseModel.meshes[i]);
 				}
 
 				for (int i = 0; i < ParseModel.vertexCount; i++)
@@ -120,7 +126,7 @@ void FileParse()
 						
 
 						ModelContainer[i].World.push_back(objects.World[Incream]);
-						ModelContainer.data()->NumInstaces++;
+						ModelContainer[i].NumInstaces++;
 						Incream++;
 						Dup++;
 					}
@@ -129,7 +135,7 @@ void FileParse()
 				if (Dup == 0)
 				{
 					ModelContainer.push_back(objects);
-					ModelContainer.data()->NumInstaces++;
+						
 					
 				}
 				

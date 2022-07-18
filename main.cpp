@@ -35,11 +35,13 @@ int main()
 			GW::SYSTEM::GWindow::Events q;
 			if (+e.Read(q) && q == GWindow::Events::RESIZE)
 				clr[0] += 0.01f; // move towards a orange as they resize
+			
 		});
 		win.Register(msgs);
 		if (+d3d12.Create(win, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT))
 		{
 			FileParse();
+			
 			Renderer renderer(win, d3d12); // init
 			while (+win.ProcessWindowEvents())
 			{
@@ -55,6 +57,7 @@ int main()
 						cmd->ClearRenderTargetView(rtv, clr, 0, nullptr);
 						cmd->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1, 0, 0, nullptr);
 						// TODO: Part 4b
+						
 						renderer.UpdateCamera();
 						renderer.Render(); // draw
 						d3d12.EndFrame(false);
