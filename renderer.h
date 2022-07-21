@@ -615,21 +615,19 @@ public:
 
 		
 		M_Data.Mesh_ID = 0;
+
 		for (int i = 0; i < ModelContainer.size(); i++)
 		{
 		
 			for (int j = 0; j < ModelContainer[i].Meshes.size(); j++)
 			{
-				M_Data.Mesh_ID += ModelContainer[i].NumInstaces;
-
+				
+				M_Data.Materials_ID =  ModelContainer[i].Meshes[j].materialIndex;
 				cmd->SetGraphicsRoot32BitConstants(3, 2, &M_Data, 0);
- 				cmd->DrawIndexedInstanced(ModelContainer[i].Meshes[j].drawInfo.indexCount, ModelContainer[i].NumInstaces, ModelContainer[i].Meshes[j].drawInfo.indexOffset, ModelContainer[i].VertexBase, 0);
-				
-				
+ 				cmd->DrawIndexedInstanced(ModelContainer[i].Meshes[j].drawInfo.indexCount, ModelContainer[i].NumInstaces, ModelContainer[i].Meshes[j].drawInfo.indexOffset, ModelContainer[i].VertexBase, 1);
 			}
 
-				
-			
+			M_Data.Mesh_ID = M_Data.Mesh_ID + ModelContainer[i].NumInstaces;
 		}
 				
 		

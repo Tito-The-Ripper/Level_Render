@@ -21,6 +21,7 @@ public:
 	std::string ObjectName; // name of a mesh
 	std::vector<GW::MATH::GMATRIXF> World; // world matrix of a mesh
 	unsigned int NumInstaces = 1; // Number of a instaces of a model
+	unsigned int NumberofMats = 1;
 	unsigned int VertexBase = 0;
 	unsigned int IndicesBase = 0;
 	std::vector<H2B::MATERIAL> Mats; // material of a object 

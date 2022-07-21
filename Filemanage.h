@@ -21,7 +21,7 @@ void FileParse()
 	std::stringstream Temp;
 	std::string PlaceHolder;
 	std::string  Deli = "(<>) ";
-	std::string  num = "0123456789";
+	std::string  num = ".0123456789";
 	Model objects;
 	H2B::Parser ParseModel;
 	GW::MATH::GMATRIXF MatrixTemp;
@@ -76,7 +76,7 @@ void FileParse()
 				if (PlaceHolder.find("0") != std::string::npos || PlaceHolder.find("1") != std::string::npos || PlaceHolder.find("2") != std::string::npos || 
 					PlaceHolder.find("3") != std::string::npos || PlaceHolder.find("4") != std::string::npos || PlaceHolder.find("5") != std::string::npos || 
 					PlaceHolder.find("6") != std::string::npos || PlaceHolder.find("7") != std::string::npos || PlaceHolder.find("8") != std::string::npos || 
-					PlaceHolder.find("9") != std::string::npos )
+					PlaceHolder.find("9") != std::string::npos || PlaceHolder.find(".") != std::string::npos)
 				{
 					for (char R : num)
 					{
@@ -125,60 +125,67 @@ void FileParse()
 				}
 
 				ParseModel.Parse(objects.ObjectName.c_str());
-
-				for (int i = 0; i < ParseModel.materialCount; i++)
-				{
-					objects.Mats.push_back(ParseModel.materials[i]);
-					Level.Mats.push_back(ParseModel.materials[i]);
-					
-				}
-				
-					objects.VertexBase = Level.Vertices.size();
-				for (int i = 0; i < ParseModel.vertexCount; i++)
-				{
-					Level.Vertices.push_back(ParseModel.vertices[i]);
-				}
-			
-				 for (int i = 0; i < ParseModel.indexCount; i++)
-				{
-					Level.Indices.push_back(ParseModel.indices[i]);
-				}
-
-
-				for (int i = 0; i < ParseModel.meshCount; i++)
-				{
-					objects.Meshes.push_back(ParseModel.meshes[i]);
-					Level.Meshes.push_back(ParseModel.meshes[i]);
-					
-				}
-				
-				
-
-				
-
 				int Dup = 0;
-				
-
-				for (int  i = 0; i < ModelContainer.size(); i++)
+			
+				for (int i = 0; i < ModelContainer.size(); i++)
 				{
 					if (objects.ObjectName == ModelContainer[i].ObjectName)
 					{
-						
 
-						ModelContainer[i].World.push_back(objects.World[Incream]);
-						ModelContainer[i].NumInstaces++;
-						Incream++;
 						Dup++;
 					}
 				}
-				
+
 				if (Dup == 0)
 				{
 
+
+					for (int i = 0; i < ParseModel.materialCount; i++)
+					{
+						objects.Mats.push_back(ParseModel.materials[i]);
+						Level.Mats.push_back(ParseModel.materials[i]);
+
+					}
+
+					objects.VertexBase = Level.Vertices.size();
+					for (int i = 0; i < ParseModel.vertexCount; i++)
+					{
+						Level.Vertices.push_back(ParseModel.vertices[i]);
+					}
+
+					objects.IndicesBase = Level.Indices.size();
+					for (int i = 0; i < ParseModel.indexCount; i++)
+					{
+						Level.Indices.push_back(ParseModel.indices[i]);
+					}
+
+					objects.NumberofMats = Level.Meshes.size();
+					for (int i = 0; i < ParseModel.meshCount; i++)
+					{
+						objects.Meshes.push_back(ParseModel.meshes[i]);
+						objects.Meshes[i].drawInfo.indexOffset += objects.IndicesBase;
+						objects.Meshes[i].materialIndex += objects.NumberofMats;
+						Level.Meshes.push_back(ParseModel.meshes[i]);
+
+					}
+					
 					
 					ModelContainer.push_back(objects);
+				}
+				else
+				{
+					for (int  i = 0; i < ModelContainer.size(); i++)
+					{
+						if (objects.ObjectName == ModelContainer[i].ObjectName)
+						{
 						
-					
+
+							ModelContainer[i].World.push_back(objects.World[0]);
+							ModelContainer[i].NumInstaces++;
+							
+						
+						}
+					}
 				}
 				
 
