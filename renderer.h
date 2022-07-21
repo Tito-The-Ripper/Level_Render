@@ -52,7 +52,7 @@ class Renderer
 	Microsoft::WRL::ComPtr<ID3D12Resource> structBufferMats;
 	Microsoft::WRL::ComPtr<ID3D12Resource> structBufferLight;
 	
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> HeapConstaBF;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> GiantHeapInfo;
 	D3D12_GPU_DESCRIPTOR_HANDLE Handler;
 	D3D12_DESCRIPTOR_HEAP_DESC HeapDescConstaBF;
 
@@ -72,36 +72,6 @@ class Renderer
 
 public:
 	
-
-
-
-	struct SCENE_DATA
-	{
-	
-		GW::MATH::GMATRIXF viewMatrix, projectionMatrix; // cameraMatrix;
-		GW::MATH::GVECTORF cameraPos;
-		GW::MATH::GVECTORF  passing[7];
-	
-	};
-
-	struct MESH_DATA
-	{
-
-		H2B::ATTRIBUTES material;
-	
-	};
-
-	struct World
-	{
-		std::vector<GW::MATH::GMATRIXF> WorldMatrixs;
-	};
-
-	struct Mats_Mesh
-	{
-		std::vector<H2B::MATERIAL> material;
-		std::vector<H2B::MESH> meshes;
-	};
-
 	#pragma region Lightings
 
 	struct DirectionalLight
@@ -111,15 +81,50 @@ public:
 	
 	#pragma endregion
 
+
+	struct SCENE_DATA
+	{
+		DirectionalLight DRLight;
+		GW::MATH::GMATRIXF viewMatrix, projectionMatrix; // cameraMatrix;
+		GW::MATH::GVECTORF cameraPos;
+		GW::MATH::GVECTORF  passing[4];
+	
+	};
+
+	struct MESH_DATA
+	{
+
+		unsigned int Mesh_ID = 0;
+		unsigned int Materials_ID = 0;
+		unsigned int padding[62];
+		
+
+	};
+	
+	struct World
+	{
+		
+		std::vector<GW::MATH::GMATRIXF> WorldMatrixs;
+	};
+
+	
+	unsigned int max_Mat = Level.Mats.size();
+	struct Mats
+	{
+		std::vector <H2B::ATTRIBUTES> material;
+	};
+
+
+
 	struct Lights
 	{
 		DirectionalLight DLight;
 	
 	};
 	SCENE_DATA S_Data;
-	MESH_DATA M_Data[2];
-	World MatrixWorrld;
-	Mats_Mesh Materials_n_Meshes;
+     MESH_DATA M_Data;
+	World MatrixWorld;
+	Mats Materials;
 	Lights Lighting;
 
 		// TODO: Part 2f
@@ -167,7 +172,7 @@ public:
 
 		FVecUP.x = 0;  FVecUP.y = 1; FVecUP.z = 0; FVecUP.w = 0;
 		FVecView.x = 0.75; FVecView.y = 0.25; FVecView.z = -1.5f; FVecView.w = 0;
-		FVecLookAt.x = 0.15; FVecLookAt.y = 0.75; FVecLookAt.z = 0.0f; FVecLookAt.w = 0;
+		FVecLookAt.x = 0.0; FVecLookAt.y = 0.1; FVecLookAt.z = 0.0f; FVecLookAt.w = 0;
 
 		
 
@@ -215,35 +220,45 @@ public:
 		Lighting.DLight.sunColor = LightColor;
 		Lighting.DLight.sunAmbient = LightAmbient;
 
+		
+
 		for (int i = 0; i < ModelContainer.size(); i++)
 		{
 			for (int j = 0; j < ModelContainer[i].World.size(); j++)
 			{
-				MatrixWorrld.WorldMatrixs.push_back(ModelContainer[i].World[j]);
+				MatrixWorld.WorldMatrixs.push_back(ModelContainer[i].World[j]);
 			}
 			
 		}
 
-		for (int i = 0; i < ModelContainer.size(); i++)
-		{
-			for (int j = 0; j < ModelContainer[i].Meshes.size(); j++)
-			{
-				Materials_n_Meshes.meshes.push_back(ModelContainer[i].Meshes[j]);
-			}
-
-		}
+		
 
 		for (int i = 0; i < ModelContainer.size(); i++)
 		{
 			for (int j = 0; j < ModelContainer[i].Mats.size(); j++)
 			{
-				Materials_n_Meshes.material.push_back(ModelContainer[i].Mats[j]);
+				Materials.material.push_back(ModelContainer[i].Mats[j].attrib);
 			}
 
 		}
 
-
+		/*for (int i = 0; i < ModelContainer.size(); i++)
+		{
+			for (int j = 0; j < ModelContainer[i].VertexBase.size(); j++)
+			{
+				Level.Vertices.push_back(ModelContainer[i].VertexBase[j]);
+			}
+			
+		}
 		
+		for (int i = 0; i < ModelContainer.size(); i++)
+		{
+			for (int j = 0; j < ModelContainer[i].IndicesBase.size(); j++)
+			{
+				Level.Indices.push_back(ModelContainer[i].IndicesBase[j]);
+			}
+
+		}*/
 
 		//M_Data[0].worldMatrix = FWolrldMatrix;
 		//M_Data[0].material = FSLogo_materials[0].attrib;
@@ -309,7 +324,7 @@ public:
 
 			creator->CreateCommittedResource( // using UPLOAD heap for simplicity
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
-				D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(sizeof(SCENE_DATA)),
+				D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer((sizeof(SCENE_DATA) + Level.Meshes.size() * sizeof(MESH_DATA))* Swap_Data.BufferCount),
 				D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&ConstaBuffer));
 			
 			// Transfer triangle data to the vertex buffer.
@@ -318,7 +333,25 @@ public:
 			ConstaBuffer->Map(0, &CD3DX12_RANGE(0, 0),
 				reinterpret_cast<void**>(&transferMemoryLocationConstantBF));
 
+			for (int i = 0; i < Swap_Data.BufferCount; i++)
+			{
+
+
 				memcpy(transferMemoryLocationConstantBF, &S_Data, sizeof(SCENE_DATA));
+
+				transferMemoryLocationConstantBF += sizeof(SCENE_DATA);
+
+				for (int i = 0; i < Level.Meshes.size(); i++)
+				{
+					memcpy(transferMemoryLocationConstantBF, &M_Data, sizeof(MESH_DATA));
+					transferMemoryLocationConstantBF += sizeof(MESH_DATA);
+				}
+
+
+				
+
+			}
+				
 
 			ConstaBuffer->Unmap(0, nullptr);
 			// TODO: Part 1c
@@ -330,13 +363,13 @@ public:
 		#pragma region HeapCB
 			HeapDescConstaBF.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 			HeapDescConstaBF.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-			HeapDescConstaBF.NumDescriptors = 1;
+			HeapDescConstaBF.NumDescriptors = 4;
 			HeapDescConstaBF.NodeMask = 0;
 
-			creator->CreateDescriptorHeap(&HeapDescConstaBF, IID_PPV_ARGS(HeapConstaBF.ReleaseAndGetAddressOf()));
+			creator->CreateDescriptorHeap(&HeapDescConstaBF, IID_PPV_ARGS(GiantHeapInfo.ReleaseAndGetAddressOf()));
 
 			// TODO: Part 2f
-			creator->CreateConstantBufferView(&ConstaView, HeapConstaBF->GetCPUDescriptorHandleForHeapStart());
+			creator->CreateConstantBufferView(&ConstaView, GiantHeapInfo->GetCPUDescriptorHandleForHeapStart());
 
 		#pragma endregion	
 
@@ -353,8 +386,8 @@ public:
 			#pragma region StructuredBufferWordMatrices
 			structViewWorld.Buffer.FirstElement = 0;
 			structViewWorld.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-			structViewWorld.Buffer.NumElements = Level.World.size();
-			structViewWorld.Buffer.StructureByteStride = sizeof(World);
+			structViewWorld.Buffer.NumElements = MatrixWorld.WorldMatrixs.size();
+			structViewWorld.Buffer.StructureByteStride = sizeof(GW::MATH::GMATRIXF);
 			structViewWorld.Format = DXGI_FORMAT_UNKNOWN;
 			structViewWorld.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 			structViewWorld.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -370,7 +403,12 @@ public:
 			structBufferWorld->Map(0, &CD3DX12_RANGE(0, 0),
 				reinterpret_cast<void**>(&transferMemoryLocationStructBFWorld));
 
-			memcpy(transferMemoryLocationStructBFWorld, &MatrixWorrld, sizeof(World));
+			for (int i = 0; i < MatrixWorld.WorldMatrixs.size(); i++)
+			{
+				memcpy(transferMemoryLocationStructBFWorld, &MatrixWorld.WorldMatrixs[i], sizeof(GW::MATH::GMATRIXF));
+				transferMemoryLocationStructBFWorld += sizeof(GW::MATH::GMATRIXF);
+			}
+			
 
 			structBufferWorld->Unmap(0, nullptr);
 			#pragma endregion
@@ -380,13 +418,13 @@ public:
 			#pragma region StructuredBufferMaterials
 			structViewMats.Buffer.FirstElement = 0;
 			structViewMats.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-			structViewMats.Buffer.NumElements = Level.Mats.size() + Level.Meshes.size();
-			structViewMats.Buffer.StructureByteStride = sizeof(Mats_Mesh);
+			structViewMats.Buffer.NumElements = Materials.material.size() * 2;
+			structViewMats.Buffer.StructureByteStride = sizeof(H2B::ATTRIBUTES);
 			structViewMats.Format = DXGI_FORMAT_UNKNOWN;
 			structViewMats.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 			structViewMats.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
-			creator->CreateCommittedResource( // using UPLOAD heap for simplicity
++			creator->CreateCommittedResource( // using UPLOAD heap for simplicity
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), // DEFAULT recommend  
 				D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(structViewMats.Buffer.NumElements * structViewMats.Buffer.StructureByteStride),
 				D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&structBufferMats));
@@ -396,30 +434,31 @@ public:
 			structBufferMats->Map(0, &CD3DX12_RANGE(0, 0),
 				reinterpret_cast<void**>(&transferMemoryLocationStructBFMats));
 
-			memcpy(transferMemoryLocationStructBFMats, &Materials_n_Meshes, sizeof(Mats_Mesh));
+			for (int i = 0; i < Materials.material.size(); i++)
+			{
+				memcpy(transferMemoryLocationStructBFMats, &Materials.material[i], sizeof(H2B::ATTRIBUTES));
+				transferMemoryLocationStructBFMats += sizeof(H2B::ATTRIBUTES);
+			}
+			
 
 			structBufferMats->Unmap(0, nullptr);
 			#pragma endregion
 
 			
+			D3D12_CPU_DESCRIPTOR_HANDLE WorldHandle = GiantHeapInfo->GetCPUDescriptorHandleForHeapStart();
 			
+			WorldHandle.ptr = WorldHandle.ptr + (1 * creator->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
 
-			#pragma region HeapSB
-			HeapDescStructureBF.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-			HeapDescStructureBF.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-			HeapDescStructureBF.NumDescriptors = 1;
-			HeapDescStructureBF.NodeMask = 0;
-
+			creator->CreateShaderResourceView(structBufferWorld.Get(), &structViewWorld , WorldHandle);
 			
-
-			creator->CreateDescriptorHeap(&HeapDescStructureBF, IID_PPV_ARGS(HeapStructureBF.ReleaseAndGetAddressOf()));
-
-			// TODO: Part 2f
-			creator->CreateShaderResourceView(structBufferWorld.Get(), &structViewWorld , HeapStructureBF->GetCPUDescriptorHandleForHeapStart());
 			
-			creator->CreateShaderResourceView(structBufferMats.Get(), &structViewMats, HeapStructureBF->GetCPUDescriptorHandleForHeapStart());
+		
+			D3D12_CPU_DESCRIPTOR_HANDLE MatsHandle = GiantHeapInfo->GetCPUDescriptorHandleForHeapStart();
+		
+			MatsHandle.ptr = MatsHandle.ptr + (2 * creator->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV));
+			creator->CreateShaderResourceView(structBufferMats.Get(), &structViewMats, MatsHandle);
 
-			#pragma endregion	
+		
 
 		#pragma endregion
 
@@ -465,10 +504,16 @@ public:
 
 		std::array<CD3DX12_ROOT_PARAMETER, 4> Rootpara;
 		Rootpara[0].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
-		Rootpara[1].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
+
+	
+
+
+		Rootpara[3].InitAsConstants(32, 1, 0, D3D12_SHADER_VISIBILITY_ALL);
+
+		Rootpara[1].InitAsShaderResourceView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
+		Rootpara[2].InitAsShaderResourceView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
+
 		
-		Rootpara[2].InitAsShaderResourceView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
-		Rootpara[3].InitAsShaderResourceView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
 		
 		// create root signature
 		CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
@@ -512,37 +557,81 @@ public:
 		d3d.GetCurrentRenderTargetView((void**)&rtv);
 		d3d.GetDepthStencilView((void**)&dsv);
 		// setup the pipeline
+		
 		cmd->SetGraphicsRootSignature(rootSignature.Get());
 		
 		// TODO: Part 3a
 		// TODO: Part 2b
-	
+		
+		UINT8* transferMemoryLocationConstantBFT;
+		ConstaBuffer->Map(0, &CD3DX12_RANGE(0, 0),
+			reinterpret_cast<void**>(&transferMemoryLocationConstantBFT));
+
+		for (int i = 0; i < Swap_Data.BufferCount; i++)
+		{
+
+
+			memcpy(transferMemoryLocationConstantBFT, &S_Data, sizeof(SCENE_DATA));
+
+			transferMemoryLocationConstantBFT += sizeof(SCENE_DATA);
+
+			for (int i = 0; i < Level.Meshes.size(); i++)
+			{
+				memcpy(transferMemoryLocationConstantBFT, &M_Data, sizeof(MESH_DATA));
+				transferMemoryLocationConstantBFT += sizeof(MESH_DATA);
+			}
+
+			
+		}
+
+
+		ConstaBuffer->Unmap(0, nullptr);
 
 	
-
-		cmd->SetDescriptorHeaps(0, HeapConstaBF.ReleaseAndGetAddressOf());
+		
+		cmd->SetDescriptorHeaps(0, GiantHeapInfo.ReleaseAndGetAddressOf());
 
 		cmd->SetGraphicsRootConstantBufferView(0, ConstaBuffer->GetGPUVirtualAddress());
 
-		cmd->SetGraphicsRootConstantBufferView(1, ConstaBuffer->GetGPUVirtualAddress());
 
-		//cmd->SetDescriptorHeaps(1, HeapStructureBF.ReleaseAndGetAddressOf());
 
-		cmd->SetGraphicsRootShaderResourceView(2, structBufferWorld->GetGPUVirtualAddress());
 
-		cmd->SetGraphicsRootShaderResourceView(3, structBufferMats->GetGPUVirtualAddress());
+		cmd->SetGraphicsRootShaderResourceView(1, structBufferWorld->GetGPUVirtualAddress());
 
-		//cmd->SetGraphicsRootShaderResourceView(4, structBufferLight->GetGPUVirtualAddress());
+		cmd->SetGraphicsRootShaderResourceView(2, structBufferMats->GetGPUVirtualAddress() );
+
+		
+	
 		
 		cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 		cmd->SetPipelineState(pipeline.Get());
 
-		cmd->IASetVertexBuffers(0, 1, &vertexView);
-		cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		cmd->IASetIndexBuffer(&indexView);
-		//cmd->DrawIndexedInstanced(8532, 1, 0, 0, 0);
 		
-				cmd->DrawIndexedInstanced(ModelContainer[0].Meshes.data()->drawInfo.indexCount, 1, ModelContainer[0].Meshes.data()->drawInfo.indexOffset, 0, 0);
+		//cmd->DrawIndexedInstanced(8532, 1, 0, 0, 0);
+
+		cmd->IASetVertexBuffers(0, 1, &vertexView);
+				cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+				cmd->IASetIndexBuffer(&indexView);
+
+		
+		M_Data.Mesh_ID = 0;
+		for (int i = 0; i < ModelContainer.size(); i++)
+		{
+		
+			for (int j = 0; j < ModelContainer[i].Meshes.size(); j++)
+			{
+				M_Data.Mesh_ID += ModelContainer[i].NumInstaces;
+
+				cmd->SetGraphicsRoot32BitConstants(3, 2, &M_Data, 0);
+ 				cmd->DrawIndexedInstanced(ModelContainer[i].Meshes[j].drawInfo.indexCount, ModelContainer[i].NumInstaces, ModelContainer[i].Meshes[j].drawInfo.indexOffset, ModelContainer[i].VertexBase, 0);
+				
+				
+			}
+
+				
+			
+		}
+				
 		
 	
 		
@@ -587,7 +676,7 @@ public:
 		
 		//Y axis
 		PCcontrols.GetState(G_KEY_SPACE, SPACE_KEY_STATE);
-
+		std::cout << SPACE_KEY_STATE;
 		PCcontrols.GetState(G_KEY_LEFTSHIFT, LEFT_SHIFT_STATE);
 
 		Consolecontrols.GetState(0 ,G_RIGHT_TRIGGER_AXIS, RIGHT_TRIGGER_STATE);
@@ -609,6 +698,7 @@ public:
 
 		PCcontrols.GetState(G_KEY_S, S_KEY_STATE);
 
+	
 	
 
 			//Consolecontrols.GetState(0, , LEFT_STICK_Y_AXIS_STATE);
@@ -700,6 +790,9 @@ public:
 		
 		GRMatrix4x4.InverseF(FViewMatrix, FViewMatrix);
 		
+		
+		S_Data.viewMatrix = FViewMatrix;
+
 	}
 		
 	~Renderer()

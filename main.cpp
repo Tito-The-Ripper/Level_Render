@@ -14,6 +14,7 @@
 // With what we want & what we don't defined we can include the API
 #include "Gateware.h"
 #include "renderer.h"
+#include "FileSelection.h"
 
 // open some namespaces to compact the code a bit
 using namespace GW;
@@ -42,7 +43,7 @@ int main()
 		{
 			FileParse();
 			
-			Renderer renderer(win, d3d12); // init
+			Renderer* renderer = new Renderer(win, d3d12); // init
 			while (+win.ProcessWindowEvents())
 			{
 				if (+d3d12.StartFrame())
@@ -57,9 +58,26 @@ int main()
 						cmd->ClearRenderTargetView(rtv, clr, 0, nullptr);
 						cmd->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1, 0, 0, nullptr);
 						// TODO: Part 4b
+						if (GetAsyncKeyState(VK_F1))
+						{
+							FileTxTSwitchHolder = openfilename();
+
+							if (FileTxTSwitchHolder.find("GameLevel") != std::string::npos)
+							{
+								SwitchTxtFile = true;
+								FileParse();
+								 renderer = new Renderer(win, d3d12);
+							}
+
+							
+						}
 						
-						renderer.UpdateCamera();
-						renderer.Render(); // draw
+						if (true)
+						{
+							renderer->UpdateCamera();
+							renderer->Render(); // draw
+						}
+						
 						d3d12.EndFrame(false);
 						cmd->Release();
 					}

@@ -9,8 +9,8 @@
 #include "Model.h"
 
 
-
-
+bool SwitchTxtFile = false;
+std::string FileTxTSwitchHolder;
 std::vector<Model> ModelContainer;
 Level_Data Level;
 
@@ -27,7 +27,39 @@ void FileParse()
 	GW::MATH::GMATRIXF MatrixTemp;
 	int counter = 0; int Incream = 0;
 	float TotalMatrix [16];
-	BlenderFile.open("../GameLevel.txt", std::ios::app);
+
+	
+
+	std::string SwitchTxt;
+
+	if (SwitchTxtFile == false)
+	{
+		SwitchTxt = "../ObjectMatrix/GameLevel.txt";
+	}
+	else
+	{
+		SwitchTxt = FileTxTSwitchHolder;
+		
+		ModelContainer.clear();
+		ModelContainer.shrink_to_fit();
+
+		Level.Indices.clear();
+		ModelContainer.shrink_to_fit();
+
+		Level.Indices.clear(); Level.Indices.shrink_to_fit();
+
+		Level.Mats.clear();	  Level.Mats.shrink_to_fit();
+
+		Level.Meshes.clear(); Level.Meshes.shrink_to_fit();
+
+		Level.Vertices.clear();	Level.Vertices.shrink_to_fit();
+
+		Level.World.clear();  Level.World.shrink_to_fit();
+	}
+
+
+
+	BlenderFile.open(SwitchTxt, std::ios::app);
 
 	if (!BlenderFile.is_open())
 		return;
@@ -98,23 +130,31 @@ void FileParse()
 				{
 					objects.Mats.push_back(ParseModel.materials[i]);
 					Level.Mats.push_back(ParseModel.materials[i]);
+					
 				}
+				
+					objects.VertexBase = Level.Vertices.size();
+				for (int i = 0; i < ParseModel.vertexCount; i++)
+				{
+					Level.Vertices.push_back(ParseModel.vertices[i]);
+				}
+			
+				 for (int i = 0; i < ParseModel.indexCount; i++)
+				{
+					Level.Indices.push_back(ParseModel.indices[i]);
+				}
+
 
 				for (int i = 0; i < ParseModel.meshCount; i++)
 				{
 					objects.Meshes.push_back(ParseModel.meshes[i]);
 					Level.Meshes.push_back(ParseModel.meshes[i]);
+					
 				}
+				
+				
 
-				for (int i = 0; i < ParseModel.vertexCount; i++)
-				{
-					Level.Vertices.push_back(ParseModel.vertices[i]);
-				}
-
-				for (int i = 0; i < ParseModel.indexCount; i++)
-				{
-					Level.Indices.push_back(ParseModel.indices[i]);
-				}
+				
 
 				int Dup = 0;
 				
@@ -134,19 +174,21 @@ void FileParse()
 				
 				if (Dup == 0)
 				{
+
+					
 					ModelContainer.push_back(objects);
 						
 					
 				}
 				
 
-				objects.World.erase(objects.World.begin());
+				objects.World.clear();
 				objects.World.shrink_to_fit();
 
-				objects.Mats.erase(objects.Mats.begin());
+				objects.Mats.clear();
 				objects.Mats.shrink_to_fit();
 
-				objects.Meshes.erase(objects.Meshes.begin());
+				objects.Meshes.clear();
 				objects.Meshes.shrink_to_fit();
 
 		
