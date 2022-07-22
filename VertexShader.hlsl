@@ -22,18 +22,13 @@ struct OUTPUT_TO_RASTERIZER
     float3 nrmW : NORMAL;
     float3 posW : WORLD;
 };
-struct Lights
-{
-	
-	float4 sunDirection;
-	float4 sunColor;
-	float4 sunAmbient;
 
-};
 
 struct SCENE_DATA
 {
-    Lights DirectionalLight;
+    float4 sunDirection;
+    float4 sunColor;
+    float4 sunAmbient;
 	matrix viewMatrix;
 	matrix projectionMatrix;
 	float4 cameraPos;
@@ -66,12 +61,13 @@ struct Mats_Mesh
 
 
 
-ConstantBuffer<SCENE_DATA> cameraAndLight : register(b0, Space0);
+ConstantBuffer<SCENE_DATA> camera : register(b0, Space0);
 ConstantBuffer<MESH_DATA> meshInfo : register(b1, Space0);
+
 
 StructuredBuffer<World> WorldMatrices : register(t0, Space0);
 StructuredBuffer<Mats_Mesh> Materials : register(t1, Space0);
-//StructuredBuffer<Lights> Lighting : register(t2, Space0);
+
 
 // TODO: Part 1f
 
@@ -99,12 +95,13 @@ OUTPUT_TO_RASTERIZER main(VS_Input inputVertex, uint instanceID : SV_InstanceID)
 	OUTPUT_TO_RASTERIZER Output = (OUTPUT_TO_RASTERIZER)0;
     float4 Temp = float4(inputVertex.Pos, 1);
     Temp = mul(Temp, WorldMatrices[meshInfo.Mesh_ID + instanceID].WorldMatrixs);
-    Temp = mul(Temp, cameraAndLight.viewMatrix);
-    Temp = mul(Temp, cameraAndLight.projectionMatrix);
+    Temp = mul(Temp, camera.viewMatrix);
+    Temp = mul(Temp, camera.projectionMatrix);
 
     Output.posH = Temp;
     Output.nrmW = mul(float4(inputVertex.Norm, 1), WorldMatrices[meshInfo.Mesh_ID + instanceID].WorldMatrixs).xyz;
-    Output.posW = mul(Temp, WorldMatrices[meshInfo.Mesh_ID + instanceID].WorldMatrixs).xyz;
+    float3 WorldM = mul(Temp, WorldMatrices[meshInfo.Mesh_ID + instanceID].WorldMatrixs).xyz;
+	Output.posW = camera.cameraPos.xyz - WorldM;
 	
     return Output;
     

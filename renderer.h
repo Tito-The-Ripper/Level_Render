@@ -26,6 +26,7 @@ class Renderer
 	 GW::MATH::GMATRIXF FWorldMatrix1;
 
 	 GW::MATH::GMATRIXF FViewMatrix;
+	 GW::MATH::GMATRIXF CamMiniMap;
 	 GW::MATH::GMATRIXF FCameraMatrix;
 	 GW::MATH::GMATRIXF FProjectionMatrix;
 
@@ -84,7 +85,7 @@ public:
 
 	struct SCENE_DATA
 	{
-		DirectionalLight DRLight;
+		GW::MATH::GVECTORF sunDirection, sunColor, sunAmbient;
 		GW::MATH::GMATRIXF viewMatrix, projectionMatrix; // cameraMatrix;
 		GW::MATH::GVECTORF cameraPos;
 		GW::MATH::GVECTORF  passing[4];
@@ -116,16 +117,14 @@ public:
 
 
 
-	struct Lights
-	{
-		DirectionalLight DLight;
 	
-	};
 	SCENE_DATA S_Data;
+	SCENE_DATA PlayerCamera_Data;
+
      MESH_DATA M_Data;
 	World MatrixWorld;
 	Mats Materials;
-	Lights Lighting;
+	//Lights Lighting;
 
 		// TODO: Part 2f
 		// TODO: Part 3b
@@ -163,25 +162,28 @@ public:
 
 		#pragma region Camera/View Matrix
 
-		CreationMatrixes.IdentityF(FViewMatrix);
+		//CreationMatrixes.IdentityF(FViewMatrix);
 		
 
 		GW::MATH::GVECTORF FVecView;
-		GW::MATH::GVECTORF FVecUP;
-		GW::MATH::GVECTORF FVecLookAt;
+		//GW::MATH::GVECTORF FVecUP;
+		//GW::MATH::GVECTORF FVecLookAt;
 
-		FVecUP.x = 0;  FVecUP.y = 1; FVecUP.z = 0; FVecUP.w = 0;
+		//FVecUP.x = 0;  FVecUP.y = 1; FVecUP.z = 0; FVecUP.w = 0;
 		FVecView.x = 0.75; FVecView.y = 0.25; FVecView.z = -1.5f; FVecView.w = 0;
-		FVecLookAt.x = 0.0; FVecLookAt.y = 0.1; FVecLookAt.z = 0.0f; FVecLookAt.w = 0;
+		//FVecLookAt.x = 0.0; FVecLookAt.y = 0.1; FVecLookAt.z = 0.0f; FVecLookAt.w = 0;
 
 		
 
-		CreationMatrixes.LookAtLHF(FVecView, FVecLookAt, FVecUP, FViewMatrix);
+		//CreationMatrixes.LookAtLHF(FVecView, FVecLookAt, FVecUP, FViewMatrix);
 
 		FCameraPos = FVecView;
-
+		FViewMatrix = camera.World[1];
 		FCameraMatrix = FViewMatrix;
-		CreationMatrixes.InverseF(FCameraMatrix, FCameraMatrix);
+
+		CamMiniMap = camera.World[0];
+
+		CreationMatrixes.InverseF(CamMiniMap, CamMiniMap);
 #pragma endregion
 
 		//Projection
@@ -201,24 +203,26 @@ public:
 		#pragma region Directional Light
 
 		//LightDirection 
-		LightDirection.x = -1; LightDirection.y = -1; LightDirection.z = 2; LightDirection.w = 0;
+		LightDirection.x = -1; LightDirection.y = -2; LightDirection.z = 1; LightDirection.w = 0;
 
 		//Light Color
 		LightColor.x = 0.9; LightColor.y = 0.9; LightColor.z = 1.0; LightColor.w = 1.0;
 
 		//Light Ambient
-		LightAmbient.x = 0.25; LightAmbient.y = 0.25; LightAmbient.z = 0.35; LightAmbient.w = 0;
+		LightAmbient.x = 0.45; LightAmbient.y = 0.45; LightAmbient.z = 0.55; LightAmbient.w = 0;
 
 		#pragma endregion
 
 		// TODO: part 2b
-		S_Data.viewMatrix = FViewMatrix;
-		S_Data.cameraPos = FCameraPos;
-		S_Data.projectionMatrix = FProjectionMatrix;
+		S_Data.viewMatrix = CamMiniMap;
+		PlayerCamera_Data.viewMatrix = camera.World[1];
+		
+		PlayerCamera_Data.cameraPos = S_Data.cameraPos = FCameraPos;
+		PlayerCamera_Data.projectionMatrix = S_Data.projectionMatrix = FProjectionMatrix;
 
-		Lighting.DLight.sunDirection = LightDirection;
-		Lighting.DLight.sunColor = LightColor;
-		Lighting.DLight.sunAmbient = LightAmbient;
+		PlayerCamera_Data.sunDirection = S_Data.sunDirection = LightDirection;
+		PlayerCamera_Data.sunColor = S_Data.sunColor = LightColor;
+		PlayerCamera_Data.sunAmbient = S_Data.sunAmbient = LightAmbient;
 
 		
 
@@ -547,7 +551,7 @@ public:
 		// free temporary handle
 		creator->Release();
 	}
-	void Render()
+	void Render(bool CameraSwitch)
 	{
 		// grab the context & render target
 		ID3D12GraphicsCommandList* cmd;
@@ -570,8 +574,15 @@ public:
 		for (int i = 0; i < Swap_Data.BufferCount; i++)
 		{
 
-
-			memcpy(transferMemoryLocationConstantBFT, &S_Data, sizeof(SCENE_DATA));
+			if (CameraSwitch)
+			{
+				memcpy(transferMemoryLocationConstantBFT, &PlayerCamera_Data, sizeof(SCENE_DATA));
+			}
+			else
+			{
+				memcpy(transferMemoryLocationConstantBFT, &S_Data, sizeof(SCENE_DATA));
+			}
+			
 
 			transferMemoryLocationConstantBFT += sizeof(SCENE_DATA);
 
@@ -682,7 +693,7 @@ public:
 		Consolecontrols.GetState( 0,G_LEFT_TRIGGER_AXIS, LEFT_TRIGGER_STATE);
 		
 		float Total_Y_Change = 0;
-		const float Camera_Speed = 0.3f;
+		const float Camera_Speed = 0.7f;
 		
 	    Total_Y_Change = SPACE_KEY_STATE - LEFT_SHIFT_STATE ;
 		FCameraMatrix.row4.y += Total_Y_Change * Camera_Speed * time_span.count();
@@ -781,6 +792,8 @@ public:
 			 OLD_MOUSE_Y_DELTA = MOUSE_Y_DELTA;
 
 
+
+
 		FViewMatrix = FCameraMatrix;
 		
 		Last = std::chrono::high_resolution_clock::now();
@@ -789,7 +802,25 @@ public:
 		GRMatrix4x4.InverseF(FViewMatrix, FViewMatrix);
 		
 		
-		S_Data.viewMatrix = FViewMatrix;
+		PlayerCamera_Data.viewMatrix = FViewMatrix;
+		
+		if (GetAsyncKeyState('1') & 0X0001)
+		{
+			
+			if (keystates < (camera.World.size() - 1))
+			{
+				keystates++;
+			}
+			else
+			{
+				keystates = 1;
+			}
+
+			PlayerCamera_Data.viewMatrix = camera.World[keystates];
+			FCameraMatrix = PlayerCamera_Data.viewMatrix;
+			
+		}
+		
 
 	}
 		

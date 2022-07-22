@@ -36,5 +36,10 @@ string openfilename(HWND owner = NULL) {
 }
 
 
+string temp()
+{
+    string filename = "../ ObjectMatrix / GameLevel1.txt";
 
+    return filename;
+}
 

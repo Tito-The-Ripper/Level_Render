@@ -20,18 +20,14 @@ struct OUTPUT_TO_RASTERIZER
     float3 nrmW : NORMAL;
     float3 posW : WORLD;
 };
-struct Lights
-{
-	
-    float4 sunDirection;
-    float4 sunColor;
-    float4 sunAmbient;
 
-};
+
 
 struct SCENE_DATA
 {
-    Lights DirectionalLight;
+    float4 sunDirection;
+    float4 sunColor;
+    float4 sunAmbient;
     matrix viewMatrix;
     matrix projectionMatrix;
     float4 cameraPos;
@@ -83,7 +79,7 @@ float4 main(OUTPUT_TO_RASTERIZER input) : SV_TARGET
 	// TODO: Part 4c
 	// TODO: Part 4g
 
-    float3 Light = normalize(cameraAndLight.DirectionalLight.sunDirection).xyz;
+    float3 Light = normalize(cameraAndLight.sunDirection).xyz;
     float3 SurfacePos = normalize(input.nrmW).xyz;
     float4 Diffuse = float4(Materials[meshInfo.Materials_ID].material.Kd, 0);
     float4 Emissive = float4(Materials[meshInfo.Materials_ID].material.Ke, 0);
@@ -93,19 +89,19 @@ float4 main(OUTPUT_TO_RASTERIZER input) : SV_TARGET
     float3 LightingW = normalize(input.posW - Light);
     float3 view = normalize(cameraAndLight.cameraPos.xyz - input.posW);
 
-    float3 reflectedlight = reflect(-(Light), SurfaceNormal);
+    float3 reflectedlight = reflect(Light, SurfaceNormal);
 
 
-    float intesity = pow(max(saturate(dot(reflectedlight, view)), 0), Materials[meshInfo.Materials_ID].material.sharpness);
-    float LightRatio = saturate(dot(-cameraAndLight.DirectionalLight.sunDirection.xyz, SurfaceNormal));
+    float intesity = pow(max(saturate(dot(reflectedlight, view)), 0), Materials[meshInfo.Materials_ID].material.Ns);
+    float LightRatio = saturate(dot(-cameraAndLight.sunDirection.xyz, SurfaceNormal));
 
-    float4 totalReflected = cameraAndLight.DirectionalLight.sunColor * float4(Materials[meshInfo.Materials_ID].material.Ks, 0) * intesity;
-
-
+    float4 totalReflected = cameraAndLight.sunColor * float4(Materials[meshInfo.Materials_ID].material.Ks, 0) * intesity;
 
 
-    float totalDirect = LightRatio * cameraAndLight.DirectionalLight.sunColor;
-    float totalIndirect = cameraAndLight.DirectionalLight.sunAmbient * float4(Materials[meshInfo.Materials_ID].material.Ka, 0);
+
+
+    float totalDirect = LightRatio * cameraAndLight.sunColor;
+    float totalIndirect = cameraAndLight.sunAmbient * float4(Materials[meshInfo.Materials_ID].material.Ka, 0);
 
     return saturate(totalDirect + totalIndirect) * Diffuse + totalReflected + Emissive;
     
